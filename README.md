@@ -35,8 +35,7 @@ BillBoy calls Gemini **only when you run it with a new pair**. `report.json` rec
 
 ## Demo and checks
 
-Create two synthetic bill PDFs or screenshots. For example, previous: 220 units and ₹2,520; current: 225 units and ₹3,180 with a printed ₹580 surcharge. Run the command and show the two bills alongside `report.md`. Run it again to demonstrate that no second model call is made.
+Two fictional consolidated company-cost invoices are included: `sample-company-july-2026.pdf` and `sample-company-august-2026.pdf`. They cover payroll, rent, utilities, software, marketing, travel, supplies, telecom, professional services, and equipment repairs. To compare them after setting the API key, run `node compare.js 'sample-company-july-2026.pdf' 'sample-company-august-2026.pdf'`. The printed total rises from USD 98,500 to USD 106,700, an increase of USD 8,200. Run the command again to demonstrate that no second model call is made. The earlier telecom-only samples are also available for a narrower example.
 
 Run `node smoke.test.js` for local tests. They mock Gemini and check PDF/image requests, arithmetic, incomplete breakdowns, and mismatch handling. The tool has not been live-tested with your API key or real bill files yet.
 # billBoy
-
