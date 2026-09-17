@@ -18,27 +18,44 @@ const current = {
     { label: 'Fuel surcharge', amount: '580' }
   ]
 };
-const previousImage = { mimeType: 'image/png', data: 'AQID' };
-const currentImage = { mimeType: 'image/jpeg', data: 'BAUG' };
+const previousImage = { name: 'old.png', mimeType: 'image/png', data: 'AQID' };
+const currentImage = { name: 'new.jpg', mimeType: 'image/jpeg', data: 'BAUG' };
 
-test('request sends two labelled images and expects structured records', async () => {
-  const request = makeRequest(previousImage, currentImage);
-  assert.equal(request.contents[0].parts.filter(part => part.inlineData).length, 2);
-  assert.match(request.contents[0].parts[0].text, /PREVIOUS MONTH/);
-  assert.equal(request.generationConfig.responseFormat.text.mimeType, 'application/json');
-  const fakeFetch = async (_url, options) => {
-    assert.equal(options.headers['x-goog-api-key'], 'test-key');
-    assert.equal(JSON.parse(options.body).contents[0].parts[3].inlineData.mimeType, 'image/jpeg');
+test('screenshots use free NVIDIA vision before free Nemotron text comparison', async () => {
+  const request = makeRequest(
+    { name: 'old.png', mimeType: 'text/plain', text: 'old bill text' },
+    { name: 'new.jpg', mimeType: 'text/plain', text: 'new bill text' }
+  );
+  assert.equal(request.model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
+  assert.equal(request.plugins, undefined);
+  assert.equal(request.messages[0].content.filter(part => part.type === 'text').length, 4);
+  assert.match(request.messages[0].content[0].text, /PREVIOUS MONTH/);
+  assert.equal(request.response_format, undefined);
+  let calls = 0;
+  const fakeFetch = async (url, options) => {
+    calls++;
+    assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(options.headers.Authorization, 'Bearer test-key');
+    const body = JSON.parse(options.body);
+    if (body.model.includes('nano-omni')) {
+      assert.match(body.messages[0].content[1].image_url.url, /^data:image\/(png|jpeg);base64,/);
+      return { ok: true, text: async () => JSON.stringify({
+        choices: [{ finish_reason: 'stop', message: { content: 'Transcribed bill text' } }],
+        usage: { prompt_tokens: 100 }
+      }) };
+    }
+    assert.equal(body.model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
+    assert.match(body.messages[0].content[3].text, /Transcribed bill text/);
     return { ok: true, text: async () => JSON.stringify({
-      candidates: [{ finishReason: 'STOP', content: { parts: [
-        { text: JSON.stringify({ previous, current }) }
-      ] } }],
-      usageMetadata: { promptTokenCount: 1200, candidatesTokenCount: 180, thoughtsTokenCount: 60 }
+      choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ previous, current }) } }],
+      usage: { prompt_tokens: 1200, completion_tokens: 180,
+        completion_tokens_details: { reasoning_tokens: 60 } }
     }) };
   };
   const result = await extractBills(previousImage, currentImage, 'test-key', fakeFetch);
   assert.equal(result.extracted.current.total, '₹3,180');
-  assert.equal(result.usage.promptTokenCount, 1200);
+  assert.equal(result.usage.promptTokenCount, 1400);
+  assert.equal(calls, 3);
 });
 
 test('arithmetic identifies the total, usage, and printed surcharge change', () => {
@@ -48,6 +65,15 @@ test('arithmetic identifies the total, usage, and printed surcharge change', () 
   assert.equal(result.usageDifference, 5);
   assert.match(result.explanation, /Fuel surcharge/);
   assert.equal(numberOrNull('₹2,520.00'), 2520);
+});
+
+test('unstructured Nemotron output is rejected instead of becoming a report', async () => {
+  const pdf = { name: 'sample.pdf', mimeType: 'application/pdf', data: 'AQID' };
+  const fakeFetch = async () => ({ ok: true, text: async () => JSON.stringify({
+    choices: [{ finish_reason: 'stop', message: { content: 'I found a bill but cannot format it.' } }]
+  }) });
+  await assert.rejects(() => extractBills(pdf, pdf, 'test-key', fakeFetch),
+    /Nemotron did not return usable bill JSON/);
 });
 
 test('an incomplete breakdown does not invent a cause', () => {
@@ -85,22 +111,24 @@ test('local run writes reports inside billBoy and reuses a matching pair', async
   try {
     fs.writeFileSync(path.join(ROOT, previousName), Buffer.concat([pngHeader, Buffer.from([1])]));
     fs.writeFileSync(path.join(ROOT, currentName), Buffer.concat([pngHeader, Buffer.from([2])]));
-    const fakeFetch = async () => {
+    const fakeFetch = async (_url, options) => {
       calls++;
+      const model = JSON.parse(options.body).model;
       return { ok: true, text: async () => JSON.stringify({
-        candidates: [{ finishReason: 'STOP', content: { parts: [
-          { text: JSON.stringify({ previous, current }) }
-        ] } }],
-        usageMetadata: { promptTokenCount: 1200 }
+        choices: [{ finish_reason: 'stop', message: { content: model.includes('nano-omni') ?
+          'Readable screenshot text' : JSON.stringify({ previous, current }) } }],
+        usage: { prompt_tokens: 1200 }
       }) };
     };
     const first = await run(previousName, currentName, 'test-key', fakeFetch, prefix);
     assert.equal(first.duplicate, false);
+    assert.equal(first.report.model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
+    assert.equal(first.report.ocrModel, 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free');
     assert.equal(first.report.comparison.difference, 660);
     assert.match(fs.readFileSync(path.join(ROOT, prefix + '.md'), 'utf8'), /Fuel surcharge/);
     const second = await run(previousName, currentName, '', fakeFetch, prefix);
     assert.equal(second.duplicate, true);
-    assert.equal(calls, 1);
+    assert.equal(calls, 3);
   } finally {
     for (const name of files) {
       const target = path.join(ROOT, name);
@@ -120,13 +148,17 @@ test('two local PDF bills are sent as PDFs and produce a comparison', async () =
     fs.writeFileSync(path.join(ROOT, currentName), '%PDF-1.4\ncurrent\n%%EOF');
     assert.equal(billFromFile(previousName).mimeType, 'application/pdf');
     const fakeFetch = async (_url, options) => {
-      const parts = JSON.parse(options.body).contents[0].parts;
-      assert.deepEqual(parts.filter(part => part.inlineData)
-        .map(part => part.inlineData.mimeType), ['application/pdf', 'application/pdf']);
+      const request = JSON.parse(options.body);
+      assert.equal(request.model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
+      assert.deepEqual(request.plugins, [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }]);
+      assert.equal(request.response_format, undefined);
+      const parts = request.messages[0].content;
+      assert.deepEqual(parts.filter(part => part.type === 'file')
+        .map(part => part.file.filename), [previousName, currentName]);
+      assert.ok(parts.filter(part => part.type === 'file')
+        .every(part => part.file.file_data.startsWith('data:application/pdf;base64,')));
       return { ok: true, text: async () => JSON.stringify({
-        candidates: [{ finishReason: 'STOP', content: { parts: [
-          { text: JSON.stringify({ previous, current }) }
-        ] } }]
+        choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ previous, current }) } }]
       }) };
     };
     const result = await run(previousName, currentName, 'test-key', fakeFetch, prefix);

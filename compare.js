@@ -8,7 +8,7 @@ async function main() {
     return;
   }
   try {
-    const result = await run(previous, current, process.env.GEMINI_API_KEY);
+    const result = await run(previous, current, process.env.OPENROUTER_API_KEY);
     console.log(result.duplicate ? 'These files were already compared; no API call was made.' :
       'Comparison complete.');
     console.log(result.report.comparison.explanation);
