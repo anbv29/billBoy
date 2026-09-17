@@ -5,11 +5,10 @@ Compare **two bills**: last month and this month. Each can be a PDF or a screens
 ## Run it on Windows
 
 1. Install Node.js 18 or newer if `node --version` does not work.
-2. Put both bills in `C:\Users\anubh\Desktop\billBoy`. Use PDF, PNG, JPEG, or WebP; each file must be 6 MB or less. Make sure the payable total and charge breakdown are readable. For PDFs, use short bills; more pages use more model tokens.
-3. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey). In **PowerShell**, run:
+2. Put both bills in the same folder as `run.ps1`. Use PDF, PNG, JPEG, or WebP; each file must be 6 MB or less. Make sure the payable total and charge breakdown are readable. For PDFs, use short bills; more pages use more model tokens.
+3. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey). Open PowerShell in the BillBoy folder (in File Explorer, open the folder, type `powershell` in the address bar, and press Enter). Then run:
 
    ```powershell
-   Set-Location -LiteralPath 'C:\Users\anubh\Desktop\billBoy'
    .\run.ps1 'last-month.pdf' 'this-month.pdf'
    ```
 
@@ -31,4 +30,4 @@ BillBoy calls Gemini **only when you run it with a new pair**. `report.json` rec
 
 Two fictional consolidated company-cost invoices are included: `julybill.pdf` and `augbill.pdf`. They cover payroll, rent, utilities, software, marketing, travel, supplies, telecom, professional services, and equipment repairs. To compare them, run `.\run.ps1 'julybill.pdf' 'augbill.pdf'`. The printed total rises from USD 98,500 to USD 106,700, an increase of USD 8,200. Run the command again to demonstrate that no second model call is made.
 
-Run `node smoke.test.js` for local tests. They mock Gemini and check PDF/image requests, arithmetic, incomplete breakdowns, and mismatch handling. A successful live comparison still needs to be verified with a Gemini API key. If Gemini returns HTTP 503 (high demand), retry later; no report is written for a failed request.
+Run `node smoke.test.js` for local tests. They mock Gemini and check PDF/image requests, arithmetic, incomplete breakdowns, and mismatch handling. To check the live workflow yourself, compare the included PDFs with a Gemini API key and verify the USD 8,200 increase in `report.md`. If Gemini returns HTTP 503 (high demand), retry later; no report is written for a failed request.
