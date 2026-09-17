@@ -97,7 +97,7 @@ test('local run writes reports inside billBoy and reuses a matching pair', async
     };
     const first = await run(previousName, currentName, 'test-key', fakeFetch, prefix);
     assert.equal(first.duplicate, false);
-    assert.equal(first.report.model, 'gemini-3.8-flash');
+    assert.equal(first.report.model, 'gemini-3.5-flash-lite');
     assert.equal(first.report.comparison.difference, 660);
     assert.match(fs.readFileSync(path.join(ROOT, prefix + '.md'), 'utf8'), /Fuel surcharge/);
     const second = await run(previousName, currentName, '', fakeFetch, prefix);

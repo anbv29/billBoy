@@ -1,6 +1,6 @@
 # BillBoy
 
-Compare **two bills**: last month and this month. Each can be a PDF or a screenshot, so PDF + PDF and PDF + image both work. BillBoy extracts printed totals, usage, and charges with Gemini 3.8 Flash. Ordinary JavaScript calculates the difference and writes a readable `report.md` and a structured `report.json` **in this folder**. Your source files stay here. There is no Google Drive, Sheet, database, deployment, or scheduled background process.
+Compare **two bills**: last month and this month. Each can be a PDF or a screenshot, so PDF + PDF and PDF + image both work. BillBoy extracts printed totals, usage, and charges with Gemini 3.5 Flash-Lite. Ordinary JavaScript calculates the difference and writes a readable `report.md` and a structured `report.json` **in this folder**. Your source files stay here. There is no Google Drive, Sheet, database, deployment, or scheduled background process.
 
 ## Run it on Windows
 
@@ -25,7 +25,7 @@ No bill is paid, no account is changed, and no message is sent. The original bil
 
 ## Cost and privacy
 
-BillBoy calls Gemini **only when you run it with a new pair**. `report.json` records the model and input, output, and thinking token counts returned by the API. Both bills are sent to Google's Gemini API for analysis, even though the source files and report stay local. Check Google's [pricing and free-tier limits](https://ai.google.dev/gemini-api/docs/pricing) before running. Use synthetic, non-confidential bills for a demo and consider Google's data terms before using real bills containing personal information.
+BillBoy calls Gemini **only when you run it with a new pair**. `report.json` records the model and input, output, and thinking token counts returned by the API. Both bills are sent to Google's Gemini API for analysis, even though the source files and report stay local. Gemini 3.5 Flash-Lite has a free tier subject to rate limits; check Google's [current pricing and limits](https://ai.google.dev/gemini-api/docs/pricing) before running. Use synthetic, non-confidential bills for a demo and consider Google's data terms before using real bills containing personal information.
 
 ## Demo and checks
 
