@@ -4,24 +4,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$keyFile = Join-Path $PSScriptRoot '.openrouter-key.dpapi'
-
-if (-not (Test-Path -LiteralPath $keyFile)) {
-  $secureKey = Read-Host 'OpenRouter API key' -AsSecureString
-  $encryptedKey = ConvertFrom-SecureString -SecureString $secureKey
-  [System.IO.File]::WriteAllText($keyFile, $encryptedKey)
-}
-
-$encryptedKey = [System.IO.File]::ReadAllText($keyFile)
-$secureKey = ConvertTo-SecureString -String $encryptedKey
+$secureKey = Read-Host 'Gemini API key' -AsSecureString
 $key = [System.Net.NetworkCredential]::new('', $secureKey).Password
 if ([string]::IsNullOrWhiteSpace($key)) {
-  throw 'The stored OpenRouter key is empty. Delete .openrouter-key.dpapi and run again.'
+  throw 'A Gemini API key is required.'
 }
 
-$previousKey = $env:OPENROUTER_API_KEY
+$previousKey = $env:GEMINI_API_KEY
 try {
-  $env:OPENROUTER_API_KEY = $key
+  $env:GEMINI_API_KEY = $key
   Push-Location -LiteralPath $PSScriptRoot
   try {
     & node compare.js $PreviousBill $CurrentBill
@@ -30,7 +21,7 @@ try {
     Pop-Location
   }
 } finally {
-  $env:OPENROUTER_API_KEY = $previousKey
+  $env:GEMINI_API_KEY = $previousKey
   $key = $null
 }
 
